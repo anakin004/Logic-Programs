@@ -1,4 +1,4 @@
-frog jumping algorithm,
+dyanmic programming frog jumping algorithm,
 calculating the probability of landing at position x, given 1/p prob of jumping p spots
 1 <= jump <= p
 
