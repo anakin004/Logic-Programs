@@ -43,7 +43,7 @@ struct Node
 
 	// will be explained later in an example	
 	bool IsLeaf;
-	
+
 	Node(int key)
 	: n(1), keys(), children(), IsLeaf(true)
 	{
@@ -60,7 +60,7 @@ struct Node
 
 	void AddKey(int key)
 	{
-		if(n < MAX_KEYS)
+		if(n < MAX_KEYS - 1)
 		{
 			keys[n] = key;
 			n+=1;
@@ -93,6 +93,7 @@ struct Node
 // returns index of the search if successful, also where the child node is
 int binsearch(const std::array<int, MAX_KEYS>& nums, uint32_t len, int key);
 
+int split(Scope<Node>& node, Scope<Node>& newRight);
 int split(Scope<Node>& node, int key, Scope<Node>& newRight);
 void insert(Scope<Node>& root, int key);
 Node* find(Scope<Node>& root, int key);
@@ -107,12 +108,30 @@ int main(int argc, char* argv[])
 	insert(head, 1);
 	insert(head, 2);
 	insert(head, 3);
+	
+	print(head,0);
+
 	insert(head, 4);
+
+	print(head,0);
+	
 	insert(head, 5);
 	
+	print(head, 0);
+
+	/*
+        insert(head, 7);
+        
+	print(head,0);
+	
+	insert(head, 8);
+        insert(head, 9);
+        insert(head, 10);
+
 	find(head,5);
 	
 	print(head, 0);
+	*/
 	return 0;
 }
 
@@ -166,10 +185,36 @@ int binsearch(const std::array<int, MAX_KEYS>& nums, uint32_t len, int key)
 }
 
 
-// Returns index where key should be inserted into parent
+// splits and assigns newRight new for a split, and returns index where key should be inserted into parent
+int split(Scope<Node>& node, Scope<Node>& newRight) {
+    
+    // Move higher half of keys to new node
+    for (uint32_t i = MIN_KEYS + 1; i < MAX_KEYS; i++) 
+    {
+         newRight->AddKey(node->keys[i]);
+    }
+    
+    if(!node->IsLeaf)
+    {
+    	for (uint32_t i = MIN_KEYS + 1; i < MAX_KEYS + 1; i++) 
+    	{
+	    	if(node->children[i])
+	    	{
+			newRight->IsLeaf = false;
+			newRight->children[i - (MIN_KEYS + 1)] = std::move(node->children[i]);
+	    	}
+    	}
+    }
+   
+    node->n = MIN_KEYS;
+    
+    
+    return MIN_KEYS; // the middle key position 
+}
+
+
 int split(Scope<Node>& node, int key, Scope<Node>& newRight) {
     
-    newRight->IsLeaf = node->IsLeaf;
     
     int insertPos = binsearch(node->keys, node->n, key);
     
@@ -182,10 +227,14 @@ int split(Scope<Node>& node, int key, Scope<Node>& newRight) {
     // If it's not a leaf, move the children too
     if (!node->IsLeaf) 
     {
-        for (int i = MIN_KEYS + 1; i = MAX_KEYS + 1; i++) 
+        for (int i = MIN_KEYS + 1; i < MAX_KEYS + 1; i++) 
 	{
-            newRight->children[i - (MIN_KEYS + 1)] = std::move(node->children[i]);
-        }
+       	    if(node->children[i])
+            {
+                newRight->IsLeaf = false;
+                newRight->children[i - (MIN_KEYS + 1)] = std::move(node->children[i]);
+            }
+	}
     }
     
     node->n = MIN_KEYS;
@@ -203,36 +252,62 @@ int split(Scope<Node>& node, int key, Scope<Node>& newRight) {
     return MIN_KEYS;  // Return the middle key position
 }
 
+
 void insert(Scope<Node>& root, int key) {
+   
+    if(!root)
+    {
+	    std::cout << "invalid";
+	    return;
+    }
+	
     if (root->IsLeaf) 
     {
-        if (root->n < MAX_KEYS) 
+	    // -1 since when we reach root->n = MAX_KEYS - 1, we will add key and will split 
+        if (root->n < MAX_KEYS - 1) 
 	{
-            root->AddKey(key);
+	    root->AddKey(key);
         } 
 	else
        	{
-            // Need to split
+            // need to split
             Scope<Node> newRight = MakeScope<Node>();
+	    
             int midKey = split(root, key, newRight);
             
-            // Create new root
+            // create new root
             Scope<Node> newLocalRoot = MakeScope<Node>();
             newLocalRoot->IsLeaf = false;
 	    newLocalRoot->AddKey(root->keys[midKey]);
-            newLocalRoot->children[0] = std::move(root);
-            newLocalRoot->children[1] = std::move(newRight);
-            
+         
+	    newLocalRoot->children[0] = std::move(root);
+	    newLocalRoot->children[1] = std::move(newRight);
             root = std::move(newLocalRoot);
+
         }
     } 
     else 
     {
         int index = binsearch(root->keys, root->n, key);
-        insert(root->children[index], key);
-        
-        // Check if child was split and we need to handle the promoted key
-        // This would be handled similarly to the leaf split case
+	insert(root->children[index], key);
+	    // check to split child
+    	if (root->children[index]->n == MAX_KEYS) {
+        	// Split the child
+        	Scope<Node> newRight;
+        	
+		int midKey = split(root->children[index], newRight);
+		
+		print(root, 0);
+        	// Insert promoted key into the parent
+        	root->AddKey(midKey);
+	
+        	// Shift children to make space for the new node
+        	for (int i = root->n; i > index + 1; i--) 
+		{
+            		root->children[i] = std::move(root->children[i - 1]);
+        	}
+        	root->children[index + 1] = std::move(newRight);
+    	}	
     }
 }
 
